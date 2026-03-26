@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartMwalimu AI</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #f8fafc;
+}
+
+.container { padding: 20px; }
+.hero { text-align: center; padding: 40px 20px; }
+.badge { background: #e0f2fe; padding: 6px 12px; border-radius: 20px; display: inline-block; margin-bottom: 15px; }
+.hero h1 { font-size: 28px; margin: 10px 0; }
+.hero span { color: #2563eb; }
+.hero p { color: #555; }
+
+.button { background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 10px; margin-top: 20px; cursor: pointer; }
+.card { background: white; padding: 15px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+
+input, textarea { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; }
+textarea { height: 120px; }
+
+.output { background: #ecfdf5; padding: 15px; border-radius: 10px; margin-top: 20px; overflow-x:auto; }
+.hidden { display: none; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+th { background: #2563eb; color: white; }
+.lesson-plan { margin: 10px 0 20px 0; padding: 10px; background: #f0f9ff; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<div id="home" class="hero">
+  <div class="badge">🇰🇪 Built for Kenyan Teachers</div>
+  <h1>Transform Curriculum into <span>Lesson Plans Instantly</span></h1>
+  <p>Generate KICD-aligned schemes of work in seconds</p>
+  <button class="button" onclick="showGenerate()">Start Generating →</button>
+</div>
+
+<div id="generate" class="container hidden">
+  <h2>Generate Plans</h2>
+
+  <div class="card">
+    <label>Lessons per Week</label>
+    <input id="lessonsPerWeek" placeholder="e.g 5">
+    <label>Duration per Lesson (minutes)</label>
+    <input id="duration" placeholder="e.g 40">
+    <label>Number of Weeks</label>
+    <input id="weeks" placeholder="e.g 12">
+  </div>
+
+  <div class="card">
+    <label>Upload Curriculum Design (.docx)</label>
+    <input type="file" id="file" accept=".docx">
+  </div>
+
+  <button class="button" onclick="generate()">Generate Scheme & Lesson Plan</button>
+
+  <div id="output" class="output hidden"></div>
+</div>
+
+<script>
+function showGenerate() {
+  document.getElementById('home').classList.add('hidden');
+  document.getElementById('generate').classList.remove('hidden');
+}
+
+async function generate() {
+  const lessonsPerWeek = document.getElementById('lessonsPerWeek').value;
+  const duration = document.getElementById('duration').value;
+  const weeks = document.getElementById('weeks').value;
+  const fileInput = document.getElementById('file');
+
+  if (!fileInput.files[0]) { alert("Please upload a curriculum file!"); return; }
+
+  const output = document.getElementById('output');
+  output.classList.add('hidden');
+  output.innerHTML = "Generating...";
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('lessonsPerWeek', lessonsPerWeek);
+  formData.append('duration', duration);
+  formData.append('weeks', weeks);
+
+  try {
+    const res = await fetch('http://localhost:5000/generate', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!data.result) { output.innerHTML = "❌ No result returned"; output.classList.remove('hidden'); return; }
+
+    // Display as HTML table and lesson plans
+    output.innerHTML = data.result;
+    output.classList.remove('hidden');
+  } catch (err) {
+    output.innerHTML = "❌ Error generating content: " + err.message;
+    output.classList.remove('hidden');
+  }
+}
+</script>
+
+</body>
+</html>
