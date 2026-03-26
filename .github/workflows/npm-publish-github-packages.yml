@@ -1,0 +1,110 @@
+# import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import multer from 'multer';
+import mammoth from 'mammoth';
+import fs from 'fs';
+
+const app = express();
+app.use(cors());
+
+// Multer setup for file upload
+const upload = multer({ dest: 'uploads/' });
+
+// ⚠️ Replace with your actual Gemini API key
+const API_KEY = "AIzaSyC_3sJM6I9WOicVqEP4mSv3ZmAnsorJm6w";
+
+app.post('/generate', upload.single('file'), async (req, res) => {
+  const { lessonsPerWeek, duration, weeks } = req.body;
+
+  if (!req.file) return res.status(400).json({ result: "❌ No file uploaded" });
+  if (!lessonsPerWeek || !duration || !weeks) return res.status(400).json({ result: "❌ Missing fields" });
+
+  try {
+    // Read uploaded .docx file
+    const buffer = fs.readFileSync(req.file.path);
+
+    // Extract text using Mammoth
+    const { value: curriculumText } = await mammoth.extractRawText({ buffer });
+
+    // Delete temp file
+    fs.unlinkSync(req.file.path);
+
+    const prompt = `
+Generate a KICD-compliant Scheme of Work and Lesson Plans.
+
+STRICT FORMAT:
+- Table with columns:
+Week | Lesson | Strand | Sub Strand | Specific Learning Outcomes | Learning Experiences | Resources | Assessment
+
+- Each lesson must have:
+Knowledge, Skills, Attitudes
+
+- Number of lessons per week: ${lessonsPerWeek}
+- Duration per lesson: ${duration} minutes
+- Total number of weeks: ${weeks}
+
+- Return the scheme of work as an HTML table and include lesson plans below each lesson in HTML format.
+
+Curriculum:
+${curriculumText}
+`;
+
+    // Call Gemini API
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+      {
+        prompt,
+        temperature: 0.7,
+        candidateCount: 1,
+        maxOutputTokens: 2000
+      }
+    );
+
+    const result = response.data?.candidates?.[0]?.content?.[0]?.text;
+    if (!result) return res.status(500).json({ result: "❌ Failed to generate content" });
+
+    res.json({ result });
+
+  } catch (error) {
+    console.error("Error generating content:", error.response?.data || error.message);
+    res.status(500).json({ result: "❌ Error generating content" });
+  }
+});
+
+app.listen(5000, () => console.log('🚀 Server running on port 5000'));This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
+# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+
+name: Node.js Package
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm test
+
+  publish-gpr:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com/
+      - run: npm ci
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
